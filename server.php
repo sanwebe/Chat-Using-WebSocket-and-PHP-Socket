@@ -73,7 +73,7 @@ while (true) {
 	}
 }
 // close the listening socket
-socket_close($sock);
+socket_close($socket);
 
 function send_message($msg)
 {
