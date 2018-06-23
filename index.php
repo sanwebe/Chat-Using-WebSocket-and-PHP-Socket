@@ -1,177 +1,134 @@
+<?php 
+$colors = array('#007AFF','#FF7000','#FF7000','#15E25F','#CFC700','#CFC700','#CF1100','#CF00BE','#F00');
+$color_pick = array_rand($colors);
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style type="text/css">
-
-.panel{
-
-	
-margin-right: 3px;
+.chat-wrapper {
+	font: bold 11px/normal 'lucida grande', tahoma, verdana, arial, sans-serif;
+    background: #00a6bb;
+    padding: 20px;
+    margin: 20px auto;
+    box-shadow: 2px 2px 2px 0px #00000017;
+	max-width:700px;
+	min-width:500px;
 }
-
-.button {
-    background-color: #4CAF50;
-    border: none;
-    color: white;
-	margin-right: 30%;   
-	margin-left: 30%;
-    text-decoration: none;
-    display: block;
-    font-size: 16px;
-    cursor: pointer;
-	width:30%;
-    height:40px;
-	margin-top: 5px;
-	 
+#message-box {
+    width: 97%;
+    display: inline-block;
+    height: 300px;
+    background: #fff;
+    box-shadow: inset 0px 0px 2px #00000017;
+    overflow: auto;
+    padding: 10px;
+}
+.user-panel{
+    margin-top: 10px;
 }
 input[type=text]{
-		width:100%;
-		margin-top:5px;
-		
-	}
-
-
-.chat_wrapper {
-	width: 70%;
-	height:472px;
-	margin-right: auto;
-	margin-left: auto;
-	background: #3B5998;
-	border: 1px solid #999999;
-	padding: 10px;
-	font: 14px 'lucida grande',tahoma,verdana,arial,sans-serif;
+    border: none;
+    padding: 5px 5px;
+    box-shadow: 2px 2px 2px #0000001c;
 }
-.chat_wrapper .message_box {
-	background: #F7F7F7;
-	height:350px;
-		overflow: auto;
-	padding: 10px 10px 20px 10px;
-	border: 1px solid #999999;
+input[type=text]#name{
+    width:20%;
 }
-.chat_wrapper  input{
-	//padding: 2px 2px 2px 5px;
+input[type=text]#message{
+    width:60%;
 }
-.system_msg{color: #BDBDBD;font-style: italic;}
-.user_name{font-weight:bold;}
-.user_message{color: #88B6E0;}
-
-@media only screen and (max-width: 720px) {
-    /* For mobile phones: */
-    .chat_wrapper {
-        width: 95%;
-	height: 40%;
-	}
-    
-
-	.button{ width:100%;
-	margin-right:auto;   
-	margin-left:auto;
-	height:40px;}
-	
-	
-	
-	
-	
-				
+button#send-message {
+    border: none;
+    padding: 5px 15px;
+    background: #11e0fb;
+    box-shadow: 2px 2px 2px #0000001c;
 }
-
 </style>
 </head>
-<body>	
-<?php 
-$colours = array('007AFF','FF7000','FF7000','15E25F','CFC700','CFC700','CF1100','CF00BE','F00');
-$user_colour = array_rand($colours);
-?>
+<body>
 
+<div class="chat-wrapper">
+<div id="message-box"></div>
+<div class="user-panel">
+<input type="text" name="name" id="name" placeholder="Your Name" maxlength="15" />
+<input type="text" name="message" id="message" placeholder="Type your message here..." maxlength="100" />
+<button id="send-message">Send</button>
+</div>
+</div>
 
-<script src="jquery-3.1.1.js"></script>
-
-
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script language="javascript" type="text/javascript">  
-$(document).ready(function(){
 	//create a new WebSocket object.
-	var wsUri = "ws://localhost:9000/demo/server.php"; 	
+	var msgBox = $('#message-box');
+	var wsUri = "ws://192.168.1.5:9000/chat/server.php"; 	
 	websocket = new WebSocket(wsUri); 
 	
 	websocket.onopen = function(ev) { // connection is open 
-		$('#message_box').append("<div class=\"system_msg\">Connected!</div>"); //notify user
+		msgBox.append('<div class="system_msg" style="color:#bbbbbb">Welcome to my "Demo WebSocket Chat box"!</div>'); //notify user
 	}
-
-	$('#send-btn').click(function(){ //use clicks message send button	
-		var mymessage = $('#message').val(); //get message text
-		var myname = $('#name').val(); //get user name
+	// Message received from server
+	websocket.onmessage = function(ev) {
+		var response 		= JSON.parse(ev.data); //PHP sends Json data
 		
-		if(myname == ""){ //empty name?
+		var res_type 		= response.type; //message type
+		var user_message 	= response.message; //message text
+		var user_name 		= response.name; //user name
+		var user_color 		= response.color; //color
+
+		switch(res_type){
+			case 'usermsg':
+				msgBox.append('<div><span class="user_name" style="color:' + user_color + '">' + user_name + '</span> : <span class="user_message">' + user_message + '</span></div>');
+				break;
+			case 'system':
+				msgBox.append('<div style="color:#bbbbbb">' + user_message + '</div>');
+				break;
+		}
+		msgBox[0].scrollTop = msgBox[0].scrollHeight; //scroll message 
+
+	};
+	
+	websocket.onerror	= function(ev){ msgBox.append('<div class="system_error">Error Occurred - ' + ev.data + '</div>'); }; 
+	websocket.onclose 	= function(ev){ msgBox.append('<div class="system_msg">Connection Closed</div>'); }; 
+
+	//Message send button
+	$('#send-message').click(function(){
+		send_message();
+	});
+	
+	//User hits enter key 
+	$( "#message" ).on( "keydown", function( event ) {
+	  if(event.which==13){
+		  send_message();
+	  }
+	});
+	
+	//Send message
+	function send_message(){
+		var message_input = $('#message'); //user message text
+		var name_input = $('#name'); //user name
+		
+		if(message_input.val() == ""){ //empty name?
 			alert("Enter your Name please!");
 			return;
 		}
-		if(mymessage == ""){ //emtpy message?
+		if(message_input.val() == ""){ //emtpy message?
 			alert("Enter Some message Please!");
 			return;
 		}
-		document.getElementById("name").style.visibility = "hidden";
-		
-		var objDiv = document.getElementById("message_box");
-		objDiv.scrollTop = objDiv.scrollHeight;
+
 		//prepare json data
 		var msg = {
-		message: mymessage,
-		name: myname,
-		color : '<?php echo $colours[$user_colour]; ?>'
+			message: message_input.val(),
+			name: name_input.val(),
+			color : '<?php echo $colors[$color_pick]; ?>'
 		};
 		//convert and send data to server
-		websocket.send(JSON.stringify(msg));
-	});
-	
-	//#### Message received from server?
-	websocket.onmessage = function(ev) {
-		var msg = JSON.parse(ev.data); //PHP sends Json data
-		var type = msg.type; //message type
-		var umsg = msg.message; //message text
-		var uname = msg.name; //user name
-		var ucolor = msg.color; //color
-
-		if(type == 'usermsg') 
-		{
-			$('#message_box').append("<div><span class=\"user_name\" style=\"color:#"+ucolor+"\">"+uname+"</span> : <span class=\"user_message\">"+umsg+"</span></div>");
-		}
-		if(type == 'system')
-		{
-			$('#message_box').append("<div class=\"system_msg\">"+umsg+"</div>");
-		}
-		
-		$('#message').val(''); //reset text
-		
-		var objDiv = document.getElementById("message_box");
-		objDiv.scrollTop = objDiv.scrollHeight;
-	};
-	
-	websocket.onerror	= function(ev){$('#message_box').append("<div class=\"system_error\">Error Occurred - "+ev.data+"</div>");}; 
-	websocket.onclose 	= function(ev){$('#message_box').append("<div class=\"system_msg\">Connection Closed</div>");}; 
-});
-
-
-
-
+		websocket.send(JSON.stringify(msg));	
+		message_input.val(''); //reset message input
+	}
 </script>
-<div class="chat_wrapper">
-<div class="message_box" id="message_box"></div>
-<div class="panel">
-<input type="text" name="name" id="name" placeholder="Your Name" maxlength="15" />
-
-<input type="text" name="message" id="message" placeholder="Message" maxlength="80" 
-onkeydown = "if (event.keyCode == 13)document.getElementById('send-btn').click()"  />
-
-
-
-
-
-</div>
-
-<button id="send-btn" class=button>Send</button>
-
-</div>
-
 </body>
 </html>
